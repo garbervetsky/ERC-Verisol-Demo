@@ -1,0 +1,42 @@
+{
+  "contract": {
+    "name": "ERC20", // If "" then the file name will be used
+    //"path": "/Users/diegog/repos/tesistas/vera/VeriMan/tests/InOrder.sol",
+    "path": "/Users/diegog/Diego/dev/blockchain/zeppelin/examples/ERC-Verisol-Demo/ERC20-demo3.sol",
+    "args": "()"
+  },
+  "output": {
+    "verbose": true,
+    "cleanup": true
+  },
+  "instrumentation": {
+    "instrument": true,
+    "for_echidna": false,
+    "solc_command": "solc", // Or the path to the version your contract needs
+    "predicates": [
+//      "prev_totalSupply ==_totalSupply || mintCalled  
+       "notConstructor -> (VeriSol.Old(_totalSupply) ==_totalSupply || mintCalled || burnCalled)" 
+      //"once(num_calls > 0) -> num_calls > 0",
+      //"a_called  -> since(num_calls > 0, num_calls > 0)",
+      ///"always(num_calls >= 0)"
+    ]
+  },
+  "verification": {
+    "verisol": {
+      "use": true,
+      "command": "VeriSol", // Or your VeriSol command if you installed it globally
+      "txs_bound": 5 // Max counterexample length
+    },
+    "manticore": {
+      "use": false, // Will only be used if VeriSol is
+      "output_path": "/Users/diegog/repos/tesistas/vera/VeriMan/output",
+      "procs": 3,  // For multithreading
+      "avoid_constant_txs": true, // Avoid all TXs that have no effect on the storage
+      "loop_delimiter": false, // TODO fix Manticore plugin
+      "loops": 10, // Affects only if loop_delimiter
+      "user_initial_balance": 100,
+      "user_accounts": 2, // FIXME get amount of accounts from VeriSol trace
+      "fallback_data_size": 320
+    }
+  }
+}
