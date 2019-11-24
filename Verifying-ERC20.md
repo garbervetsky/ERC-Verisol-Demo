@@ -30,7 +30,8 @@ As an example of functional specifications, some properties of interest for an E
 
 3) A *temporal property* specifying a property that must hold for a sequence of transactions to be valid:  e.g, `totalSupply` does not increase unless `mint` function is invoked.
 
-For describing the properties we will use the tool [VeriSol](https://github.com/microsoft/verisol). This tool contracts written in  Solidity and tries to prove the contract satisfies a set of given properties or provides a counterexample.
+For checking the properties we will use the tool [VeriSol](https://github.com/microsoft/verisol), a research prototype developed by Shuvendu Lahiri from Microsoft Research and other collaborators. 
+This tool takes contracts written in  Solidity and tries to prove the contract satisfies a set of given properties or provides counterexamples.
 
 I took the examples of ERC20 implementation given in [VeriSol regression suite](https://github.com/microsoft/verisol/tree/master/Test/regressions) which are slight adaptations of the original [ERC20](https://github.com/OpenZeppelin/openzeppelin-contracts/tree/master/contracts/token/ERC20) implementation from [Open Zeppelin](https://openzeppelin.com/). 
 All the examples can be found [here](https://github.com/garbervetsky/ERC-Verisol-Demo/).
@@ -83,9 +84,28 @@ The specification must explicitly state that the balance of all other accounts r
 This a property is not as simple as the previous one, since it must *quantity*  over the set of all accounts in the mapping of balances. However, the assertion language neither provides means to quantity over set of the elements nor is possible in Solidity  to obtain the set of accounts from a mapping. 
 Note this complication also apply if we want to test this property. Languages like [JML](https://www.openjml.org/) or [Dafny](https://github.com/dafny-lang/dafny) introduced clauses like `asignable` or `modifies` to define the part of the state than can be change.
 
-VeriSol developers are working in including a clause to specify [frame conditions](https://github.com/microsoft/verisol/issues/220). It would look like `Verisol.Modifies(balance,[recipient, message.sender])`. That will be internally translate into a frame condition stating that the rest of the state does not change.
 
-To show that VerisSol can find errors, let's assume we forgot to [update the balance](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/5431a5bbf71df2add493602308bdce77f572de45/ERC20-1.sol#L172) of the sender.
+VeriSol developers have just included preliminary support of a means specify frame conditions. They provide a new clause `VeriSol.Modifies` that looks like this:  `Verisol.Modifies(mapping,[k1, ..., kn])`. That will be internally translate into a frame condition stating that elements in the mapping for the indicating keys may be changed but the remaining elements must not be changed.
+For instance, consider 
+[this version of `transfer`](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/ERC20-mod1.sol#L78) with an incomplete frame condition `VeriSol.Modifies(_balances, [recipient]);` 
+
+When we execute `VeriSol ERC20-mod1.sol ERC20` we get: 
+``` 
+	*** Did not find a proof (see boogie.txt)
+	*** Found a counterexample (see corral.txt)
+	-----Transaction Sequence for Defect ------
+./ERC20-mod1.sol(44,1): : ERC20::Constructor (this = address!0, msg.sender = address!4, msg.value = 11, totalSupply = 655)
+./ERC20-mod1.sol(73,1): : ERC20::transfer (this = address!0, msg.sender = address!4, msg.value = 12, recipient = address!3, amount = 266)
+./ERC20-mod1.sol(80,1): : ASSERTION FAILS!
+```
+
+which points to the incomplete modifies clause. When we fix the modifies close (see [this version of `transfer`](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/ERC20-mod2.sol#L78) with the right frame condition `VeriSol.Modifies(_balances, [mgs.sender, recipient]);`  we obtain:
+
+```
+	*** Proof found! Formal Verification successful! (see boogie.txt)
+```
+
+To show that VeriSol can find errors in the code, let's assume we forgot to [update the balance](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/ERC20-1.sol#L174) of the sender.
 
 ```
 function _transfer(address sender, address recipient, uint256 amount) internal {
@@ -103,17 +123,17 @@ By executing `Verisol ERC20-1.sol ERC20` we get:
 	*** Did not find a proof (see boogie.txt)
 	*** Found a counterexample (see corral.txt)
 	-----Transaction Sequence for Defect ------
-./ERC20-demo1.sol(43,1): : ERC20::Constructor (this = address!0, msg.sender = address!6, msg.value = 12, totalSupply = 1)
-./ERC20-demo1.sol(75,1): : ERC20::transfer (this = address!0, msg.sender = address!3, msg.value = 13, recipient = address!4, amount = 142)
-./ERC20-demo1.sol(77,1): : ASSERTION FAILS!
+./ERC20-1.sol(44,1): : ERC20::Constructor (this = address!0, msg.sender = address!6, msg.value = 12, totalSupply = 1)
+./ERC20-1.sol(73,1): : ERC20::transfer (this = address!0, msg.sender = address!3, msg.value = 13, recipient = address!4, amount = 142)
+./ERC20-1.sol(75,1): : ASSERTION FAILS!
 ```
 
 which means there is one sequence of transactions (i.e., create, transfer) which makes the
- `assert (VeriSol.Old(_balances[msg.sender] + _balances[recipient]) == _balances[msg.sender] + _balances[recipient]);` on line 77 fail.
+ `assert (VeriSol.Old(_balances[msg.sender] + _balances[recipient]) == _balances[msg.sender] + _balances[recipient]);` on line 75 fail.
 
 ## Checking overflows and underflows
 
-As a bonus track, lets suppose a much simpler specification stating that after transferring tokens the `sender` [must has less or equal amount of tokens](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/5431a5bbf71df2add493602308bdce77f572de45/ERC20-uf.sol#L75).
+As a bonus track, lets suppose a much simpler specification stating that after transferring tokens the `sender` [must has less or equal amount of tokens](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/ERC20-uf.sol#L76).
 
 ```
 function transfer(address recipient, uint256 amount) public returns (bool) {
@@ -123,7 +143,7 @@ function transfer(address recipient, uint256 amount) public returns (bool) {
 }
 ```
 
-Even though this spec is very weak, it can help to uncover an overflow/underflow bug, for instance by [forgetting to use `SafeMath`](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/5431a5bbf71df2add493602308bdce77f572de45/ERC20-uf.sol#L172).
+Even though this spec is very weak, it can help to uncover an overflow/underflow bug, for instance by [forgetting to use `SafeMath`](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/ERC20-uf.sol#L173).
 
 ```
 function _transfer(address sender, address recipient, uint256 amount) internal {
@@ -156,7 +176,7 @@ which is exactly the assertion we included.
 
  A *contract level invariant* prescribing that the sum of balances is equal to the total supply. In contrast to the previous property which applied only to the `transfer` function, now we want to describe property that must hold thorough *all* the transactions of the contracts. Thus, this property must be checked after finishing each transaction.
 
-Fortunately, VeriSol includes a way to specify contract invarians using a special function [`contractInvariant`](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/5431a5bbf71df2add493602308bdce77f572de45/ERC20-2.sol#L269). Here is an example:
+Fortunately, VeriSol includes a way to specify contract invarians using a special function [`contractInvariant`](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/ERC20-2.sol#L271). Here is an example:
 
 ```
 function contractInvariant() private view {
@@ -164,9 +184,9 @@ function contractInvariant() private view {
 }
 ```
 
-Another cool aspect of VeriSol is that is the built-in clause `SumMapping` which represent the sum of all values in a mappings, which is handy for our specification purpose (recall the previous discussion about quantifying mapping elements).
+Another cool aspect of VeriSol is the built-in clause `SumMapping` which allow to express the sum of all values in a mappings, which is handy for our specification purpose (recall the previous discussion about quantifying mapping elements).
 
-Suppose, we inadvertently forgot to update the `totalSupply` in the [`_mint`](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/5431a5bbf71df2add493602308bdce77f572de45/ERC20-2.sol#L213) function:
+Suppose, we inadvertently forgot to update the `totalSupply` in the [`_mint`](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/ERC20-2.sol#L215) function:
 
 ```
 function _mint(address account, uint256 amount) internal {
@@ -193,9 +213,9 @@ VeriSol reports finds the problem and reports the right transaction sequence (th
 
 I strongly recommend developers to reason about and specify contracts invariants, because they really help to understand the relationship between the contract storage variables and help  maintain the contract in a consistent state. Note that general issues like overflows/underflow can be also be discovered using invariants, since an overflow/underflow may an invariant.
 
-For instance, the same problem of underflow in the [`_transfer`](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/5431a5bbf71df2add493602308bdce77f572de45/ERC20-uf2.sol#L169) function can be uncover by the failing [invariant](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/5431a5bbf71df2add493602308bdce77f572de45/ERC20-uf2.sol#L242).
+For instance, the same problem of underflow in the [`_transfer`](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/ERC20-uf2.sol#L169) function can be uncover by the failing [invariant](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/ERC20-uf2.sol#L242). 
 
-`Verisol ERC20-uf2.sol ERC20 /useModularArithmetic`
+Recall that in order to check overflows we need to use the additional flag `Verisol ERC20-uf2.sol ERC20 /useModularArithmetic`:
 
 ```
 	*** Did not find a proof (see boogie.txt)
