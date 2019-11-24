@@ -1,8 +1,7 @@
 {
   "contract": {
     "name": "ERC20", // If "" then the file name will be used
-    //"path": "/Users/diegog/repos/tesistas/vera/VeriMan/tests/InOrder.sol",
-    "path": "/Users/diegog/Diego/dev/blockchain/zeppelin/examples/ERC-Verisol-Demo/ERC20-demo3.sol",
+    "path": "/Users/diegog/Diego/dev/blockchain/zeppelin/examples/ERC-Verisol-Demo/ERC20-Veriman.sol",
     "args": "()"
   },
   "output": {
@@ -14,11 +13,9 @@
     "for_echidna": false,
     "solc_command": "solc", // Or the path to the version your contract needs
     "predicates": [
-//      "prev_totalSupply ==_totalSupply || mintCalled  
+       "VeriSol.Old(_totalSupply)  ==_totalSupply || mintCalled",
+              "notConstructor -> (VeriSol.Old(_totalSupply) ==_totalSupply || mintCalled)",  
        "notConstructor -> (VeriSol.Old(_totalSupply) ==_totalSupply || mintCalled || burnCalled)" 
-      //"once(num_calls > 0) -> num_calls > 0",
-      //"a_called  -> since(num_calls > 0, num_calls > 0)",
-      ///"always(num_calls >= 0)"
     ]
   },
   "verification": {
