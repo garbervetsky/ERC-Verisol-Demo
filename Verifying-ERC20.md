@@ -1,4 +1,4 @@
-## Verifiying ERC20 implementations with VeriSol 
+## Formal Verification of ERC20 implementations with VeriSol 
 
 In a previous [post](https://forum.openzeppelin.com/t/openzeppelins-online-erc20-verifier-behind-the-scenes/1675) @tinchoabbate showed implementation details on [the ERC online verifier](https://erc20-verifier.openzeppelin.com/), a tool
 to check compliance with the ERC20 standard. 
@@ -14,24 +14,24 @@ This is also warned in @spalladino when he introduces [the ERC online verifier](
 
 > Note that the script **does not verify that the functions found behave as expected** . It just checks for matching signatures, return types, existence of custom modifiers, event emissions, among others.
 
-This is because the tool is not meant for checking functional properties. Checking functional properties is much hard.
-From the one hand they are more difficult to formalize: think about how to write a property prescribing that tokens cannot be stolen in some logic or a property allowing *only* safe cases of reentrancy. 
-On the other hand they are also hard to verify due to several factors including decidability of the logic used in the specification (see [this wikipedia](https://en.wikipedia.org/wiki/Decidability_(logic)) summary), scalability (large contracts, the blockchain itself), lack of context (who and how is going to invoke the contract), etc.
+This is because the tool is not meant for checking functional properties. Checking functional properties is much harder.
+On one hand they are more difficult to formalize: think about how to write a property prescribing that tokens cannot be stolen in some logic or a property allowing *only* safe cases of reentrancy. 
+On the other hand they are also harder to verify due to several factors including decidability of the logic used in the specification (see [this wikipedia](https://en.wikipedia.org/wiki/Decidability_(logic)) summary), scalability (large contracts, the blockchain itself), lack of context (who and how is going to invoke the contract), etc.
 
-Even though it may not be possible or advisable to formalize all functional and security properties (yes, we still need human audits!) there are several properties that worth verifying, as we want to thoroughly test our contracts in order to gain more confidence.
+Even though it may not be possible or feasible to formalize all functional and security properties (yes, we still need human audits!) there are several properties that worth verifying, as we want to thoroughly test our contracts in order to gain more confidence.
 Even though testing does not guarantee the absence of bugs, a good test suite not only helps to better validate our contracts, it also serve for regression purposes.
 In that sense, verification can be thought as testing a set of properties (not all, only the ones we formalize) for *all* possible scenarios (including not only parameters, also message senders, blockchain state, storage, etc).
 
 As an example of functional specifications, some properties of interest for an ERC20 implementation can be:
 
-1) A *function level contract* like stating that the function `transfer` decreases sender balance in a determined `amount`  and increases the destination balance in the same `amount` without affecting other balances. The sender must have enough tokens to perform this operation.
+1) A *function level contract* like stating that the function `transfer` decreases sender balance in a determined `amount` and increases the destination balance in the same `amount` without affecting other balances. The sender must have enough tokens to perform this operation.
 
-2) A *contract level invariant* prescribing that the sum of balances is equal to the total supply.
+2) A *contract level invariant* prescribing that the sum of balances is always equal to the total supply.
 
 3) A *temporal property* specifying a property that must hold for a sequence of transactions to be valid:  e.g, `totalSupply` does not increase unless `mint` function is invoked.
 
-For checking the properties we will use the tool [VeriSol](https://github.com/microsoft/verisol), a research prototype developed by Shuvendu Lahiri from Microsoft Research and other collaborators. 
-This tool takes contracts written in  Solidity and tries to prove the contract satisfies a set of given properties or provides counterexamples.
+For checking the properties we will use the tool [VeriSol](https://github.com/microsoft/verisol), a research prototype developed by Microsoft Research. 
+This tool takes contracts written in  Solidity and tries to prove the contract satisfies a set of given properties or provides a sequence of transactions that violates the properties.
 
 I took the examples of ERC20 implementation given in [VeriSol regression suite](https://github.com/microsoft/verisol/tree/master/Test/regressions) which are slight adaptations of the original [ERC20](https://github.com/OpenZeppelin/openzeppelin-contracts/tree/master/contracts/token/ERC20) implementation from [Open Zeppelin](https://openzeppelin.com/). 
 All the examples can be found [here](https://github.com/garbervetsky/ERC-Verisol-Demo/).
@@ -78,16 +78,14 @@ By executing:  `Verisol ERC20.sol ERC20` we get:
 
 meaning that VeriSol was able to prove the contract complains with the specification.
 
-It is worth noticing that we just  has proven is a *partial* specification since there is an important property missing: the balances of *all* other accounts must remain unchanged!
+It is worth noticing that what we have just  proven is a *partial* specification since there is an important property missing: the balances of *all* other accounts must remain unchanged!
 Indeed, an implementation of `_transfer` that changes the balance of any other accounts will be undetected by VeriSol with this specification.
 The specification must explicitly state that the balance of all other accounts remains unchanged.
-This a property is not as simple as the previous one, since it must *quantity*  over the set of all accounts in the mapping of balances. However, the assertion language neither provides means to quantity over set of the elements nor is possible in Solidity  to obtain the set of accounts from a mapping. 
-Note this complication also apply if we want to test this property. Languages like [JML](https://www.openjml.org/) or [Dafny](https://github.com/dafny-lang/dafny) introduced clauses like `asignable` or `modifies` to define the part of the state than can be change.
+This a property is not as simple as the previous one, since it must *quantity*  over the set of all accounts in the mapping of balances. However, the assertion language in Solidity neither provides means to quantify over set of the elements nor it is possible to iterate over all the keys in a mapping. Therefore, one cannot even express and test this property in Solidity. 
 
-
-VeriSol developers have just included preliminary support of a means specify frame conditions. They provide a new clause `VeriSol.Modifies` that looks like this:  `Verisol.Modifies(mapping,[k1, ..., kn])`. That will be internally translate into a frame condition stating that elements in the mapping for the indicating keys may be changed but the remaining elements must not be changed.
+Verification-aware languages like [JML](https://www.openjml.org/) or [Dafny](https://github.com/dafny-lang/dafny) introduced clauses like `asignable` or `modifies` to define the part of the state than can be change. VeriSol has recently included preliminary support of a means specify frame conditions. They provide a new clause `VeriSol.Modifies` that looks like this:  `Verisol.Modifies(mapping,[k1, ..., kn])`. That will internally translate into a frame condition stating that elements in the mapping for the indicating keys `[k1, …, kn]` may be changed but the remaining elements must not be changed.
 For instance, consider 
-[this version of `transfer`](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/ERC20-mod1.sol#L78) with an incomplete frame condition `VeriSol.Modifies(_balances, [recipient]);` 
+[this version of `transfer`](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/ERC20-mod1.sol#L78) with an incorrect frame condition `VeriSol.Modifies(_balances, [recipient]);` 
 
 When we execute `VeriSol ERC20-mod1.sol ERC20` we get: 
 ``` 
@@ -133,7 +131,7 @@ which means there is one sequence of transactions (i.e., create, transfer) which
 
 ## Checking overflows and underflows
 
-As a bonus track, lets suppose a much simpler specification stating that after transferring tokens the `sender` [must has less or equal amount of tokens](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/ERC20-uf.sol#L76).
+As a bonus track, let us suppose a much simpler specification stating that after transferring tokens the `sender` [must has less or equal amount of tokens](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/ERC20-uf.sol#L76).
 
 ```
 function transfer(address recipient, uint256 amount) public returns (bool) {
@@ -157,7 +155,7 @@ function _transfer(address sender, address recipient, uint256 amount) internal {
 }
 ```
 
-We need to include the flag  `/useModularArithmetic` to tell VeriSol to use modular arithmetic instead of unbounded integers.
+We need to include the flag  `/useModularArithmetic` to tell VeriSol to use modular arithmetic instead of unbounded integers. This flag is not used as default because it comes with a performance overhead, but required for soundness. 
 
 `Verisol ERC20-uf.sol ERC20 /useModularArithmetic`
 
@@ -174,7 +172,7 @@ which is exactly the assertion we included.
 
 ## Working with contract invariants 
 
- A *contract level invariant* prescribing that the sum of balances is equal to the total supply. In contrast to the previous property which applied only to the `transfer` function, now we want to describe property that must hold thorough *all* the transactions of the contracts. Thus, this property must be checked after finishing each transaction.
+ Consider a *contract level invariant* prescribing that the sum of balances is equal to the total supply. In contrast to the previous property which applied only to the `transfer` function, now we want to describe property that must hold thorough *all* the transactions of the contracts. Thus, this property must be checked after finishing each transaction.
 
 Fortunately, VeriSol includes a way to specify contract invarians using a special function [`contractInvariant`](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/ERC20-2.sol#L271). Here is an example:
 
@@ -184,7 +182,7 @@ function contractInvariant() private view {
 }
 ```
 
-Another cool aspect of VeriSol is the built-in clause `SumMapping` which allow to express the sum of all values in a mappings, which is handy for our specification purpose (recall the previous discussion about quantifying mapping elements).
+Another cool aspect of VeriSol is the built-in clause `SumMapping` which allow to express the sum of all values in a mappings, which is handy for our specification purpose (recall the previous discussion about quantifying over all the elements in a mapping).
 
 Suppose, we inadvertently forgot to update the `totalSupply` in the [`_mint`](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/ERC20-2.sol#L215) function:
 
@@ -209,7 +207,7 @@ Executing `Verisol ERC20-2.sol ERC20` we get:
 	---------------
   ```
 
-VeriSol reports finds the problem and reports the right transaction sequence (the problem is due to a bug in `mint`) but instead of reporting the line corresponding to the contract invariant it wrongly reports the bug the last line of the constructor (this [issue](https://github.com/microsoft/verisol/issues/166) has been already reported).
+VeriSol reports finds the problem and reports the right transaction sequence (the problem is due to a bug in `mint`). There is a minor issue in that instead of reporting the line corresponding to the contract invariant it wrongly reports the bug the last line of the constructor (this [issue](https://github.com/microsoft/verisol/issues/166) has been already reported).
 
 I strongly recommend developers to reason about and specify contracts invariants, because they really help to understand the relationship between the contract storage variables and help  maintain the contract in a consistent state. Note that general issues like overflows/underflow can be also be discovered using invariants, since an overflow/underflow may an invariant.
 
@@ -226,16 +224,16 @@ Recall that in order to check overflows we need to use the additional flag `Veri
 ./ERC20-demo.sol(46,1): : ASSERTION FAILS!
 ```
 
-Other tools like [VerX](https://verx.ch/) also provide support to (multi) contract invariants as well for specifying temporal properties (see bellow). VerX seems to be a well engineered tool and it provides a very clean language for specifying properties but, unfortunately, unlike VeriSol the tool is not open and requires a payed subscription for its use.
+Other tools like [VerX](https://verx.ch/) also provide support to (multi) contract invariants as well for specifying temporal properties (see bellow). VerX has a language for specifying properties but, unfortunately, unlike VeriSol the tool is not open and requires a payed subscription for its use.
 
 ## Working with temporal properties 
 
-A *temporal property* specifying a property that must hold for a sequence of transactions to be valid:  e.g, `totalSupply` does not increase unless `mint` function is invoked.
+A *temporal property* is a property that must hold over a sequence of transactions:  e.g, `totalSupply` does not increase unless `mint` function is invoked.
 
-Before specifyng this property, we will use the [temporal logic LTL](https://en.wikipedia.org/wiki/Linear_temporal_logic).
-(Very) roughly speaking, a LTL logic extend a classical logic with relations about states, so with LTL we can express properties about sequences of states (i.e., a sequence of transactions). For instance, one can say specify that the  value of `_totalSupply` does not change unless you apply a `mint` operation, or once the `_totalSupply` is greater than zero, it cannot decrease to zero, or `mint` cannot be applied twice, etc.  
-To specify temporal properties we will resort on [VeriMan](https://github.com/VeraBE/VeriMan) a tool developed by @veraBE which takes a Solidity contract and a set of formulas written in PTLTL (Past Linear Temporal Logic, more details [here](https://forum.openzeppelin.com/t/veriman-a-prototype/1446)). 
-The tool instruments the contract to find a trace that falsifies at least one of the properties or prove that they hold. The instrumented contract can be checked with tools like VeriSol, Mythril, Manticore, Echidna, etc.,In the case of VeriSol, we can include in the formulas expressions like `Verisol.Old(_totalSupply)` which can be handy for some properties.  
+One can specify such properties in [temporal logic LTL](https://en.wikipedia.org/wiki/Linear_temporal_logic).
+(Very) roughly speaking, a LTL logic extends a classical logic with relations about states, so with LTL we can express properties about sequences of states (i.e., a sequence of transactions). For instance, one can say specify that the  value of `_totalSupply` does not change unless you apply a `mint` operation, or once the `_totalSupply` is greater than zero, it cannot decrease to zero, or `mint` cannot be applied twice, etc.  
+To specify temporal properties, we will resort on [VeriMan](https://github.com/VeraBE/VeriMan) a tool developed by @veraBE. It takes a Solidity contract and a set of formulas written in PTLTL (Past Linear Temporal Logic, more details [here](https://forum.openzeppelin.com/t/veriman-a-prototype/1446)). 
+The tool instruments the contract to find a trace that falsifies at least one of the properties or prove that they hold. The instrumented contract can be checked with tools like VeriSol, Mythril, Manticore, Echidna, etc. In the case of VeriSol, we can include in the formulas expressions like `Verisol.Old(_totalSupply)` which can be handy for some properties.  
 
 For instance, the formula `(VeriSol.Old(_totalSupply) ==_totalSupply || mintCalled)` states that for all transaction sequences,  `_totalSupply` remains the same unless the `mint` function is called. 
 
@@ -247,7 +245,7 @@ When we invoke VeriMan we obtain the following counter example.
 
 which looks counter intuitive at the beginning. However, it is indeed true that the constructor changes the value of `_totalSupply` and 
 `VeriSol.Old` is implemented in a way that its value is undefined before creating the contract (which makes sense!).
-So, we slightly modify the contract to add a boolean variable that helps us avoid this particular case (the code is [here](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/ERC20-Veriman.sol) and using this [config](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/config.json) file for Veriman). 
+So, we slightly modify the contract to add a Boolean variable that helps us avoid this particular case (the code is [here](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/ERC20-Veriman.sol) and using this [config](https://github.com/garbervetsky/ERC-Verisol-Demo/blob/master/config.json) file for VeriMan). 
 
 Now, we invoke VeriMan with this property `notConstructor -> (VeriSol.Old(_totalSupply) ==_totalSupply)` and obtain a new counter example. 
 ```
@@ -266,9 +264,9 @@ Now, we invoke VeriMan with this property `notConstructor -> (VeriSol.Old(_total
 
 ## Conclusions
 
-We have shown how we can use a formal verification tool like VeriSol to check functional properties in a ERC20 implementation. We discussed a range of properties like function pre/postconditions, contract invariants and temporal properties.
-Even we argue that that the use of these tool cannot replace professional security audit it can help developers (and auditors) to reason about their contract and gain confidence. 
+We have shown how we can use a formal verification tool like VeriSol to check functional properties for a ERC20 implementation. We discussed a range of properties like function pre/postconditions, contract invariants and temporal properties.
+Even though the use of these tools cannot replace professional security audit, it can help developers (and auditors) to reason about their contract and gain confidence. 
 
 ## Acknowledgments 
 
-Special thanks to Shuvendu Lahiri for the technical assistance on VeriSol and @VeraBe for helping me with VeriMan. 
+Special thanks to Shuvendu Lahiri for the technical assistance on VeriSol and @VeraBe for helping me with VeriMan.
