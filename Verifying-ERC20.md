@@ -249,3 +249,6 @@ Now, we invoke VeriMan with this property `notConstructor -> (VeriSol.Old(_total
 We have shown how we can use a formal verification tool like VeriSol to check functional properties in a ERC20 implementation. We discussed a range of properties like function pre/postconditions, contract invariants and temporal properties.
 Even we argue that that the use of these tool cannot replace professional security audit it can help developers (and auditors) to reason about their contract and gain confidence. 
 
+## Acknowledgments 
+
+Special thanks to Shuvendu Lahiri for the technical assistance on VeriSol and @VeraBe for helping me with VeriMan. 
