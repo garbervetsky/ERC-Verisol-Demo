@@ -74,9 +74,7 @@ contract ERC20 is IERC20 {
         _transfer(msg.sender, recipient, amount);
         assert (VeriSol.Old(_balances[msg.sender] + _balances[recipient]) == _balances[msg.sender] + _balances[recipient]);
         assert (msg.sender == recipient ||  _balances[msg.sender] == VeriSol.Old(_balances[msg.sender] - amount));
-        // Frame condition
-        VeriSol.Modifies(_balances, [msg.sender, recipient]);
-        
+
         return true;
     }
 
@@ -171,7 +169,7 @@ contract ERC20 is IERC20 {
         require(sender != address(0), "ERC20: transfer from the zero address");
         require(recipient != address(0), "ERC20: transfer to the zero address");
 
-        // _balances[sender] =  _balances[sender].sub(amount); 
+        _balances[sender] = _balances[sender].sub(amount); 
         _balances[recipient] = _balances[recipient].add(amount);
         emit Transfer(sender, recipient, amount);
     }
