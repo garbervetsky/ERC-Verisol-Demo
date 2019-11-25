@@ -31,7 +31,11 @@ As an example of functional specifications, some properties of interest for an E
 3) A *temporal property* specifying a property that must hold for a sequence of transactions to be valid:  e.g, `totalSupply` does not increase unless `mint` function is invoked.
 
 For checking the properties we will use the tool [VeriSol](https://github.com/microsoft/verisol), a research prototype developed by Microsoft Research. 
-This tool takes contracts written in  Solidity and tries to prove the contract satisfies a set of given properties or provides a sequence of transactions that violates the properties. For the purposes of this post I am working with [this commit](https://github.com/microsoft/verisol/commit/6298e0ebc7499bdda1f076f97d81ba0e07ccf07e), so I would recommend to [build the tool](https://github.com/microsoft/verisol/blob/master/INSTALL.md#install-from-sources) using this version or from a more recent commit instead of using the precompiled version.   
+This tool takes contracts written in  Solidity and tries to prove the contract satisfies a set of given properties or provides a sequence of transactions that violates the properties. 
+VeriSol directly understands `assert` and `requires` clauses directly from Solidity but also includes a notion called Code Contracts (coined from [.NET Code Contracts](https://docs.microsoft.com/en-us/dotnet/framework/debug-trace-profile/code-contracts)) where the language of contracts does no extend the language but uses a (dummy) set of additional (dummy) libraries that can be compiled by the compiler.
+
+
+For the purposes of this post I am working with [this commit](https://github.com/microsoft/verisol/commit/6298e0ebc7499bdda1f076f97d81ba0e07ccf07e), so I would recommend to [build the tool](https://github.com/microsoft/verisol/blob/master/INSTALL.md#install-from-sources) using this version or from a more recent commit instead of using the precompiled version.   
 
 I took the examples of ERC20 implementation given in [VeriSol regression suite](https://github.com/microsoft/verisol/tree/master/Test/regressions) which are slight adaptations of the original [ERC20](https://github.com/OpenZeppelin/openzeppelin-contracts/tree/master/contracts/token/ERC20) implementation from [Open Zeppelin](https://openzeppelin.com/). 
 All the examples can be found [here](https://github.com/garbervetsky/ERC-Verisol-Demo/).
@@ -54,7 +58,7 @@ function transfer(address recipient, uint256 amount) public returns (bool) {
 ```
 
 The spec is straightforward. We expect the balance of the `recipient` to be increased by `amount` and that amount of tokens should be decreased form the balance of `msg.sender`. 
-Note that VeriSol provides the special construct `VeriSol.Old(expr)` to denote the value on an `expr` *before* the invocation. 
+Note that VeriSol provides the special construct (from the contract library) `VeriSol.Old(expr)` to denote the value on an `expr` *before* the invocation. 
 The first assertion states that the sum of the balances of `sender` and `recipient` before calling `transfer` is the same than after calling `transfer`.
 The second assertion consider two cases: i) when the recipient and the sender is the same and nothing changes or ii) when the `amount` is decreased (and the should be increased accordingly to comply with the previous assertion).
 
