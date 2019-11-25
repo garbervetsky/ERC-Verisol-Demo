@@ -32,8 +32,7 @@ As an example of functional specifications, some properties of interest for an E
 
 For checking the properties we will use the tool [VeriSol](https://github.com/microsoft/verisol), a research prototype developed by Microsoft Research. 
 This tool takes contracts written in  Solidity and tries to prove the contract satisfies a set of given properties or provides a sequence of transactions that violates the properties. 
-VeriSol directly understands `assert` and `requires` clauses directly from Solidity but also includes a notion called Code Contracts (coined from [.NET Code Contracts](https://docs.microsoft.com/en-us/dotnet/framework/debug-trace-profile/code-contracts)) where the language of contracts does no extend the language but uses a (dummy) set of additional (dummy) libraries that can be compiled by the compiler.
-
+VeriSol includes a Code Contracts library  written in Solidity (coined from [.NET Code Contracts](https://docs.microsoft.com/en-us/dotnet/framework/debug-trace-profile/code-contracts)) to augment the specification capabilities beyond Solidity provided ‘assert’ and ‘require’.
 
 For the purposes of this post I am working with [this commit](https://github.com/microsoft/verisol/commit/6298e0ebc7499bdda1f076f97d81ba0e07ccf07e), so I would recommend to [build the tool](https://github.com/microsoft/verisol/blob/master/INSTALL.md#install-from-sources) using this version or from a more recent commit instead of using the precompiled version.   
 
