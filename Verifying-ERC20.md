@@ -8,10 +8,10 @@ It is really nice to have automated tools that help developers to produce compla
 
 >**The `transfer` function of the token might as well be stealing all tokens, and this tool wouldn’t even notice.**
 
-This is also warned about in @spalladino when he introduces [the ERC online verifier](https://erc20-verifier.openzeppelin.com/):
+This is also warned about in @spalladino when he introduces [the ERC online verifier](https://forum.openzeppelin.com/t/online-erc20-contract-verifier/1575):
 
 
-> Note that the script **does not verify that the functions found behave as expected** . It just checks for matching signatures, return types, existence of custom modifiers, and event emissions, among others.
+> Note that the script **does not verify that the functions found behave as expected** . It just checks for matching signatures, return types, existence of custom modifiers, event emissions, among others.
 
 This is because the tool is not meant for checking functional properties. Checking functional properties is much harder.
 One, they are more difficult to formalize: Think about how to write a property prescribing that tokens cannot be stolen in some logic or a property allowing *only* safe cases of reentrancy. 
@@ -214,7 +214,8 @@ Executing `Verisol ERC20-2.sol ERC20`, we get:
 	---------------
   ```
 
-VeriSol finds the problem and reports the right transaction sequence. The problem is due to a bug in `mint`. There is a minor issue in that instead of reporting the line corresponding to the contract invariant: It wrongly reports the bug in the last line of the constructor (This [issue](https://github.com/microsoft/verisol/issues/166) has already been reported.).
+VeriSol detected a sequence of transactions (including the invocation of the function mint`) violating the invariant.
+Notice that there is a minor issue in the current version of Verisol: Instead of reporting the line corresponding to the contract invariant it wrongly reports the bug in the last line of the constructor (This [issue](https://github.com/microsoft/verisol/issues/166) has already been reported.).
 
 I strongly recommend developers to reason about and specify contract invariants, because they really help to understand the relationship among the contract storage variables and help maintain the contract in a consistent state. Note that general issues like overflows and underflows can also be discovered this way, since they may break an invariant.
 
