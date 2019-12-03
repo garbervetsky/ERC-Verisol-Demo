@@ -214,8 +214,7 @@ Executing `Verisol ERC20-2.sol ERC20`, we get:
 	---------------
   ```
 
-VeriSol detected a sequence of transactions (including the invocation of the function mint`) violating the invariant.
-Notice that there is a minor issue in the current version of Verisol: Instead of reporting the line corresponding to the contract invariant it wrongly reports the bug in the last line of the constructor (This [issue](https://github.com/microsoft/verisol/issues/166) has already been reported.).
+VeriSol detected a sequence of transactions (including the invocation of the function mint`) violating the invariant. Notice that there is a minor issue in the current version of Verisol: Instead of reporting the line corresponding to the contract invariant, it wrongly reports the bug in the last line of the constructor (This [issue](https://github.com/microsoft/verisol/issues/166) has already been reported.).
 
 I strongly recommend developers to reason about and specify contract invariants, because they really help to understand the relationship among the contract storage variables and help maintain the contract in a consistent state. Note that general issues like overflows and underflows can also be discovered this way, since they may break an invariant.
 
